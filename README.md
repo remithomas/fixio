@@ -56,6 +56,13 @@ client.fixOut$.subscribe(fix => {
 client.error$.subscribe(e => console.log(e))
 ```
 
+Custom re-order for your FIX message
+```javascript
+fixutil.convertToFIX(msg, '4.4', '', 'senderCompId','targetCompId', 1, {
+    tagsOrder: [460, 1, 70]
+},)
+```
+
 Containerized NPM
 =================
 

@@ -146,6 +146,34 @@ let grupToFix = (tag: string, item:any, bodymsgarr: Array<unknown>) => {
     }
 }
 
+export function sortTags(msg: Record<any, unknown>, tagsOrder?: (fixSchema.keyvals|string)[]): [string, unknown][] {
+    if(!tagsOrder || !tagsOrder.length) {
+        return Object.entries(msg)
+    }
+
+    const entries = Object.entries(msg).sort((a, b) => {
+        const tagA = a[0]
+        const tagB = b[0]
+        const indexA = tagsOrder.findIndex(i => i.toString() === tagA.toString())
+        const indexB = tagsOrder.findIndex(i => i.toString() === tagB.toString())
+
+        const isNotFound = indexA === -1 || indexB === -1
+        if(isNotFound) {
+            return 1
+        }
+
+        if(indexA > indexB) {
+            return 1
+        } else if (indexA < indexB) {
+            return -1
+        }
+
+        return 0
+    })
+
+    return entries
+}
+
 export function convertToFIX(
     msg: Record<any, unknown>,
     fixVersion: unknown,
@@ -158,6 +186,7 @@ export function convertToFIX(
         readonly targetSubID?: unknown
         readonly senderLocationID?: unknown
         readonly appVerID?: unknown
+        readonly tagsOrder?: fixSchema.keyvals[]
     },
 ): string {
     //defensive copy
@@ -175,6 +204,18 @@ export function convertToFIX(
     
     headermsgarr.push(keyvals.TargetCompID, '=', msg[keyvals.TargetCompID] || targetCompID, SOHCHAR);
     delete msg[keyvals.TargetCompID]
+
+    const entries = sortTags(msg, options?.tagsOrder)
+
+    for (const [tag, item] of entries) {
+        const isBodyTag = headerFields[tag] !== true
+        
+        if (Array.isArray(item)) {
+            grupToFix(tag, item, isBodyTag ? bodymsgarr: headermsgarr)
+        } else {
+            (isBodyTag ? bodymsgarr : headermsgarr).push(tag, '=', item, SOHCHAR)
+        }
+    }
 
     if (options.appVerID) {
         headermsgarr.push(keyvals.ApplVerID, '=', msg[keyvals.ApplVerID] || options.appVerID, SOHCHAR);
@@ -197,18 +238,6 @@ export function convertToFIX(
 
     if(msg[keyvals.LastMsgSeqNumProcessed] !== undefined){
         headermsgarr.push(keyvals.LastMsgSeqNumProcessed, '=', msg[keyvals.LastMsgSeqNumProcessed], SOHCHAR);
-    }
-
-    
-
-    for (const [tag, item] of Object.entries(msg)) {
-        const isBodyTag = headerFields[tag] !== true
-        
-        if (Array.isArray(item)) {
-            grupToFix(tag, item, isBodyTag ? bodymsgarr: headermsgarr)
-        } else {
-            (isBodyTag ? bodymsgarr : headermsgarr).push(tag, '=', item, SOHCHAR)
-        }
     }
 
     const headermsg = headermsgarr.join('');
